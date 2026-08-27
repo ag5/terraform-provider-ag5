@@ -1,0 +1,7 @@
+/terraform-provider-ag5
+/terraform-provider-terraform
+/dist/
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
