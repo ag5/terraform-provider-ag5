@@ -28,7 +28,22 @@ output "test" {
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectKnownOutputValue(
 							"test",
-							knownvalue.StringExact(strings.Repeat("a", 55)+"-28165978"),
+							knownvalue.StringExact(strings.Repeat("a", 58)+"-28165"),
+						),
+					},
+				},
+			},
+			{
+				Config: `
+output "test" {
+  value = provider::ag5::shorten("` + strings.Repeat("a", 100) + `", 64, 12)
+}
+`,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectKnownOutputValue(
+							"test",
+							knownvalue.StringExact(strings.Repeat("a", 51)+"-2816597888e4"),
 						),
 					},
 				},
@@ -39,8 +54,37 @@ output "test" {
   value = provider::ag5::shorten("anything", 8)
 }
 `,
-				ExpectError: regexp.MustCompile(`max_length must be at least 9`),
+				ExpectError: errorPattern("max_length must be at least 9"),
+			},
+			{
+				Config: `
+output "test" {
+  value = provider::ag5::shorten("anything", 64, 0)
+}
+`,
+				ExpectError: errorPattern("hash_length must be between 1 and 64"),
+			},
+			{
+				Config: `
+output "test" {
+  value = provider::ag5::shorten("anything", 64, 65)
+}
+`,
+				ExpectError: errorPattern("hash_length must be between 1 and 64"),
+			},
+			{
+				Config: `
+output "test" {
+  value = provider::ag5::shorten("anything", 64, 5, 8)
+}
+`,
+				ExpectError: errorPattern("hash_length accepts at most one value"),
 			},
 		},
 	})
+}
+
+// errorPattern matches message text regardless of where Terraform wraps it.
+func errorPattern(message string) *regexp.Regexp {
+	return regexp.MustCompile(strings.ReplaceAll(regexp.QuoteMeta(message), " ", `\s+`))
 }

@@ -30,23 +30,25 @@ output "bucket_name" {
 
 ## Functions
 
-### `shorten(name, max_length)`
+### `shorten(name, max_length, [hash_length])`
 
 Returns `name` unchanged when its length is at most `max_length`. Otherwise it
 returns:
 
 ```text
-{name[0:max_length-9]}-{sha256(name)[0:8]}
+{name[0:max_length-hash_length-1]}-{sha256(name)[0:hash_length]}
 ```
 
 The function counts Unicode characters, hashes the UTF-8 representation of the
 complete original name with SHA-256, and renders the digest as lowercase
-hexadecimal. `max_length` must be at least 9.
+hexadecimal. `hash_length` is optional, defaults to 5, and must be between 1 and
+64. At least three characters of the original name are always retained, so
+`max_length` must be at least `hash_length + 4`.
 
 For example, shortening 100 `a` characters to 64 characters produces:
 
 ```text
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-28165978
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-28165
 ```
 
 ## Development

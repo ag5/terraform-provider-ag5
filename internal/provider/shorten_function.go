@@ -9,7 +9,24 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/function"
 )
 
-const hashSuffixLength = 9
+const (
+	// defaultHashLength is the hash length used when hash_length is omitted.
+	defaultHashLength = 5
+
+	// maxHashLength is the number of hexadecimal characters in a SHA-256 digest.
+	maxHashLength = sha256.Size * 2
+
+	// minPrefixLength is the number of characters of the original name that a
+	// shortened result always retains, so that the result never degrades to a
+	// bare hash suffix.
+	minPrefixLength = 3
+)
+
+// minMaxLength returns the smallest max_length that leaves room for
+// minPrefixLength name characters, the hyphen, and the hash.
+func minMaxLength(hashLength int64) int64 {
+	return hashLength + 1 + minPrefixLength
+}
 
 var _ function.Function = ShortenFunction{}
 
@@ -28,17 +45,25 @@ func (ShortenFunction) Definition(_ context.Context, _ function.DefinitionReques
 	resp.Definition = function.Definition{
 		Summary: "Shorten a name while retaining a stable hash suffix",
 		MarkdownDescription: "Returns the name unchanged when it fits. Otherwise, returns the first " +
-			"`max_length - 9` characters followed by `-` and the first eight lowercase hexadecimal " +
-			"characters of the name's SHA-256 hash.",
+			"`max_length - hash_length - 1` characters followed by `-` and the first `hash_length` " +
+			"lowercase hexadecimal characters of the name's SHA-256 hash.",
 		Parameters: []function.Parameter{
 			function.StringParameter{
 				Name:                "name",
 				MarkdownDescription: "Name to shorten.",
 			},
 			function.Int64Parameter{
-				Name:                "max_length",
-				MarkdownDescription: "Maximum number of Unicode characters in the result. Must be at least 9.",
+				Name: "max_length",
+				MarkdownDescription: "Maximum number of Unicode characters in the result. Must be at least " +
+					"`hash_length + 4`, so that at least three characters of the name are retained.",
 			},
+		},
+		VariadicParameter: function.Int64Parameter{
+			Name: "hash_length",
+			MarkdownDescription: fmt.Sprintf(
+				"Number of hexadecimal hash characters to append. Must be between 1 and %d. Defaults to %d when omitted.",
+				maxHashLength, defaultHashLength,
+			),
 		},
 		Return: function.StringReturn{},
 	}
@@ -47,13 +72,29 @@ func (ShortenFunction) Definition(_ context.Context, _ function.DefinitionReques
 func (ShortenFunction) Run(ctx context.Context, req function.RunRequest, resp *function.RunResponse) {
 	var name string
 	var maxLength int64
+	var hashLengths []int64
 
-	resp.Error = function.ConcatFuncErrors(req.Arguments.Get(ctx, &name, &maxLength))
+	resp.Error = function.ConcatFuncErrors(req.Arguments.Get(ctx, &name, &maxLength, &hashLengths))
 	if resp.Error != nil {
 		return
 	}
 
-	shortened, err := shorten(name, maxLength)
+	if len(hashLengths) > 1 {
+		resp.Error = function.NewArgumentFuncError(2, "hash_length accepts at most one value")
+		return
+	}
+
+	hashLength := int64(defaultHashLength)
+	if len(hashLengths) == 1 {
+		hashLength = hashLengths[0]
+	}
+
+	if err := validateHashLength(hashLength); err != nil {
+		resp.Error = function.NewArgumentFuncError(2, err.Error())
+		return
+	}
+
+	shortened, err := shorten(name, maxLength, hashLength)
 	if err != nil {
 		resp.Error = function.NewArgumentFuncError(1, err.Error())
 		return
@@ -62,9 +103,23 @@ func (ShortenFunction) Run(ctx context.Context, req function.RunRequest, resp *f
 	resp.Error = function.ConcatFuncErrors(resp.Result.Set(ctx, shortened))
 }
 
-func shorten(name string, maxLength int64) (string, error) {
-	if maxLength < hashSuffixLength {
-		return "", fmt.Errorf("max_length must be at least %d", hashSuffixLength)
+// validateHashLength reports whether hashLength characters can be taken from a
+// SHA-256 digest rendered as hexadecimal.
+func validateHashLength(hashLength int64) error {
+	if hashLength < 1 || hashLength > maxHashLength {
+		return fmt.Errorf("hash_length must be between 1 and %d", maxHashLength)
+	}
+
+	return nil
+}
+
+func shorten(name string, maxLength int64, hashLength int64) (string, error) {
+	if err := validateHashLength(hashLength); err != nil {
+		return "", err
+	}
+
+	if minimum := minMaxLength(hashLength); maxLength < minimum {
+		return "", fmt.Errorf("max_length must be at least %d", minimum)
 	}
 
 	characters := []rune(name)
@@ -73,8 +128,8 @@ func shorten(name string, maxLength int64) (string, error) {
 	}
 
 	digest := sha256.Sum256([]byte(name))
-	hashPrefix := hex.EncodeToString(digest[:])[:hashSuffixLength-1]
-	prefixLength := int(maxLength - hashSuffixLength)
+	hashPrefix := hex.EncodeToString(digest[:])[:hashLength]
+	prefixLength := maxLength - hashLength - 1
 
 	return string(characters[:prefixLength]) + "-" + hashPrefix, nil
 }

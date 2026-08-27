@@ -15,3 +15,11 @@ output "short_name" {
     64,
   )
 }
+
+output "short_name_long_hash" {
+  value = provider::ag5::shorten(
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    64,
+    12,
+  )
+}
