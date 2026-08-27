@@ -28,7 +28,7 @@ output "test" {
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectKnownOutputValue(
 							"test",
-							knownvalue.StringExact(strings.Repeat("a", 58)+"-28165"),
+							knownvalue.StringExact(strings.Repeat("a", 58)+"-36a92"),
 						),
 					},
 				},
@@ -43,7 +43,7 @@ output "test" {
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectKnownOutputValue(
 							"test",
-							knownvalue.StringExact(strings.Repeat("a", 51)+"-2816597888e4"),
+							knownvalue.StringExact(strings.Repeat("a", 51)+"-36a92cc94a9e"),
 						),
 					},
 				},
@@ -51,10 +51,10 @@ output "test" {
 			{
 				Config: `
 output "test" {
-  value = provider::ag5::shorten("anything", 8)
+  value = provider::ag5::shorten("anything", 5)
 }
 `,
-				ExpectError: errorPattern("max_length must be at least 9"),
+				ExpectError: errorPattern("max_length must be at least 6"),
 			},
 			{
 				Config: `
@@ -62,15 +62,15 @@ output "test" {
   value = provider::ag5::shorten("anything", 64, 0)
 }
 `,
-				ExpectError: errorPattern("hash_length must be between 1 and 64"),
+				ExpectError: errorPattern("hash_length must be between 1 and 32"),
 			},
 			{
 				Config: `
 output "test" {
-  value = provider::ag5::shorten("anything", 64, 65)
+  value = provider::ag5::shorten("anything", 64, 33)
 }
 `,
-				ExpectError: errorPattern("hash_length must be between 1 and 64"),
+				ExpectError: errorPattern("hash_length must be between 1 and 32"),
 			},
 			{
 				Config: `

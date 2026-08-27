@@ -33,22 +33,23 @@ output "bucket_name" {
 ### `shorten(name, max_length, [hash_length])`
 
 Returns `name` unchanged when its length is at most `max_length`. Otherwise it
-returns:
+truncates the name to `max_length - hash_length - 1` characters, drops a
+trailing `-` instead of doubling it, and fills the result up to exactly
+`max_length` characters with the lowercase hexadecimal MD5 hash of the complete
+original name.
 
-```text
-{name[0:max_length-hash_length-1]}-{sha256(name)[0:hash_length]}
-```
+This matches the `id` that
+[cloudposse/terraform-null-label](https://registry.terraform.io/modules/cloudposse/label/null)
+produces when `id_length_limit` is set.
 
-The function counts Unicode characters, hashes the UTF-8 representation of the
-complete original name with SHA-256, and renders the digest as lowercase
-hexadecimal. `hash_length` is optional, defaults to 5, and must be between 1 and
-64. At least three characters of the original name are always retained, so
-`max_length` must be at least `hash_length + 4`.
+The function counts Unicode characters and hashes the UTF-8 representation of
+the original name. `hash_length` is optional, defaults to 5, and must be between
+1 and 32. `max_length` must be at least `hash_length + 1`.
 
 For example, shortening 100 `a` characters to 64 characters produces:
 
 ```text
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-28165
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-36a92
 ```
 
 ## Development

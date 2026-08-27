@@ -1,18 +1,21 @@
 ---
 page_title: "shorten function - AG5"
 description: |-
-  Shortens a name and appends a stable SHA-256 hash suffix.
+  Shortens a name and appends a stable MD5 hash suffix.
 ---
 
 # function: shorten
 
 Returns the input unchanged when it fits within the maximum length. A longer
-input is shortened to `max_length - hash_length - 1` Unicode characters and
-suffixed with a hyphen and the first `hash_length` lowercase hexadecimal
-characters of its SHA-256 hash. `hash_length` is optional and defaults to 5.
+input is truncated to `max_length - hash_length - 1` Unicode characters, loses a
+trailing `-` rather than doubling it, and is then filled up to exactly
+`max_length` characters with the lowercase hexadecimal MD5 hash of the complete
+original name.
 
-At least three characters of the original name are always retained, so
-`max_length` must leave room for them alongside the hyphen and the hash.
+This mirrors the `id` that
+[cloudposse/terraform-null-label](https://registry.terraform.io/modules/cloudposse/label/null)
+produces when `id_length_limit` is set, so both can be used on the same
+resources without changing their names.
 
 ## Example Usage
 
@@ -28,10 +31,10 @@ output "short_name" {
 The output is:
 
 ```text
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-28165
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-36a92
 ```
 
-Pass a third argument to use a longer hash:
+Pass a third argument to reserve more hash characters:
 
 ```terraform
 output "short_name_long_hash" {
@@ -46,7 +49,7 @@ output "short_name_long_hash" {
 The output is:
 
 ```text
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-2816597888e4
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-36a92cc94a9e
 ```
 
 ## Signature
@@ -59,7 +62,8 @@ shorten(name string, max_length number, hash_length number...) string
 
 - `name` — name to shorten.
 - `max_length` — maximum number of Unicode characters in the result. Must be at
-  least `hash_length + 4`, so that at least three characters of the name are
-  retained.
-- `hash_length` — optional number of hexadecimal hash characters to append. Must
-  be between 1 and 64. Defaults to 5 when omitted.
+  least `hash_length + 1`. A truncated result always uses the full length.
+- `hash_length` — optional number of hash characters to reserve. Must be between
+  1 and 32. Defaults to 5 when omitted, matching the module's `id_hash_length`.
+  One extra hash character appears when a trailing `-` is trimmed from the
+  truncated name.
